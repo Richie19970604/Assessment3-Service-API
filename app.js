@@ -121,6 +121,14 @@ async function getS3BucketName() {
     }
 })();
 
+// 配置页面路由
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'index.html')));
+app.get('/about', (req, res) => res.sendFile(path.join(__dirname, 'views', 'about.html')));
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'views', 'login.html')));
+app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'views', 'register.html')));
+app.get('/personal', verifyToken, (req, res) => res.sendFile(path.join(__dirname, 'views', 'personal.html')));
+app.get('/verify', (req, res) => res.sendFile(path.join(__dirname, 'views', 'verify.html')));
+
 // 文件上传并发送转换任务
 app.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).send('No file uploaded');
