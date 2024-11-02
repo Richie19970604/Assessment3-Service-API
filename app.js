@@ -8,10 +8,13 @@ const mysql = require('mysql2');
 const cookieParser = require('cookie-parser');
 const { CognitoIdentityProviderClient, SignUpCommand, InitiateAuthCommand, ConfirmSignUpCommand } = require('@aws-sdk/client-cognito-identity-provider');
 const { getDatabaseCredentials } = require('./secretmanager');
+const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const jwksClient = require('jwks-rsa');
 
 const app = express();
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
+const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
+const QUEUE_URL = process.env.SQS_QUEUE_URL;
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -113,6 +116,27 @@ app.post('/login', async (req, res) => {
     } catch (err) {
         console.error('Login failed:', err);
         res.status(400).json({ success: false, message: 'Invalid username or password' });
+    }
+});
+
+// Upload image processing request to SQS
+app.post('/upload', verifyToken, async (req, res) => {
+    try {
+        const messageBody = {
+            username: req.username,
+            format: req.body.format || 'jpg',
+            // Include any file-specific data
+        };
+
+        await sqsClient.send(new SendMessageCommand({
+            QueueUrl: QUEUE_URL,
+            MessageBody: JSON.stringify(messageBody)
+        }));
+
+        res.status(200).json({ message: 'Image processing request sent successfully' });
+    } catch (error) {
+        console.error('Error sending to SQS:', error);
+        res.status(500).send('Error sending image to processing queue');
     }
 });
 
