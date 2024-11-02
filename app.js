@@ -121,13 +121,14 @@ async function getS3BucketName() {
     }
 })();
 
-// 配置页面路由
+
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'index.html')));
 app.get('/about', (req, res) => res.sendFile(path.join(__dirname, 'views', 'about.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'views', 'login.html')));
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'views', 'register.html')));
 app.get('/personal', verifyToken, (req, res) => res.sendFile(path.join(__dirname, 'views', 'personal.html')));
 app.get('/verify', (req, res) => res.sendFile(path.join(__dirname, 'views', 'verify.html')));
+
 
 // 文件上传并发送转换任务
 app.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
@@ -293,6 +294,24 @@ app.get('/callback', async (req, res) => {
         res.status(500).send('Login failed');
     }
 });
+
+// 更新文件转换状态的路由
+app.post('/api/update-status', (req, res) => {
+    const { username, fileName, status, url, message } = req.body;
+    
+    console.log("Status update received:", { username, fileName, status, url, message });
+
+    // 在数据库中更新上传记录的状态（假设有 status 和 message 列）
+    const sql = `UPDATE uploads SET status = ?, message = ? WHERE username = ? AND file_name = ?`;
+    db.query(sql, [status, message, username, fileName], (err) => {
+        if (err) {
+            console.error('Error updating upload status in database:', err);
+            return res.status(500).json({ success: false, message: 'Failed to update status' });
+        }
+        res.status(200).json({ success: true, message: 'Status updated successfully' });
+    });
+});
+
 
 // 启动服务器
 app.listen(80, () => console.log('Service A running on port 80'));
