@@ -303,20 +303,23 @@ app.get('/callback', async (req, res) => {
 });
 
 // 更新文件转换状态的路由
-app.post('/api/update-status', (req, res) => {
-    const { username, fileName, status, url, message } = req.body;
-    
-    console.log("Status update received:", { username, fileName, status, url, message });
+app.post('/api/update-status', async (req, res) => {
+    const { username, fileName, status, message, url } = req.body;
 
-    // 在数据库中更新上传记录的状态（假设有 status 和 message 列）
-    const sql = `UPDATE uploads SET status = ?, message = ? WHERE username = ? AND file_name = ?`;
-    db.query(sql, [status, message, username, fileName], (err) => {
-        if (err) {
-            console.error('Error updating upload status in database:', err);
-            return res.status(500).json({ success: false, message: 'Failed to update status' });
-        }
-        res.status(200).json({ success: true, message: 'Status updated successfully' });
-    });
+    try {
+        const sql = `UPDATE uploads SET status = ?, message = ? WHERE username = ? AND file_name = ?`;
+        db.query(sql, [status, message, username, fileName], (err, results) => {
+            if (err) {
+                console.error('Error updating upload status in database:', err);
+                return res.status(500).json({ success: false, message: 'Failed to update status' });
+            }
+            console.log(`Status updated for file: ${fileName}`);
+            res.json({ success: true, message: 'Status updated successfully' });
+        });
+    } catch (error) {
+        console.error('Failed to update status:', error);
+        res.status(500).json({ success: false, message: 'Failed to update status' });
+    }
 });
 
 
