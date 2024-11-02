@@ -1,0 +1,448 @@
+/* Global Styles */
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f4f4f9;  /* 柔和的背景色 */
+    color: #333;  
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+a {
+    color: #d4af37;  
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: #b8860b;  
+    text-decoration: underline;
+}
+
+/* Navigation Bar */
+nav {
+    background-color: #fff;  
+    border-bottom: 2px solid #d4af37;  
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+    font-weight: bold;
+    font-size: 28px;
+    color: #d4af37;
+    font-family: 'Georgia', serif;  /* 增加视觉层次感 */
+}
+
+.nav-links a {
+    margin-left: 25px;
+    font-size: 16px;
+    color: #333;  
+    text-transform: uppercase;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.nav-links a:hover {
+    color: #b8860b;  
+}
+
+/* Main Content Styles */
+h1, h2 {
+    color: #333;
+    margin: 30px 0;
+    text-align: center;
+    font-family: 'Georgia', serif;
+}
+
+p {
+    font-size: 18px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+/* Form Styles */
+form {
+    max-width: 600px;
+    margin: 20px auto;
+    padding: 30px;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;  /* 圆角设计 */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);  /* 更好的阴影 */
+}
+
+form label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+form input[type="text"],
+form input[type="password"],
+form input[type="file"],
+form input[type="email"] {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+}
+
+form input:focus {
+    border-color: #d4af37;  
+}
+
+form button {
+    background-color: #d4af37;  
+    color: #fff;
+    padding: 12px 25px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+form button:hover {
+    background-color: #b8860b;  
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* OAuth container */
+.oauth-container {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.oauth-container p {
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #666;
+}
+
+.oauth-container img {
+    max-width: 100%;
+    cursor: pointer;
+}
+
+/* Upload Area Styles */
+.upload-area {
+    border: 2px dashed #d4af37; 
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    margin-bottom: 20px;
+    background-color: #fafafa;
+    border-radius: 8px;
+    transition: background-color 0.3s ease;
+}
+
+.upload-area:hover {
+    background-color: #f0f0f0;
+}
+
+.upload-box p {
+    color: #777;
+}
+
+/* Grid Styles for Personal Page */
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.grid-item {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.grid-item img {
+    max-width: 100%;
+    border-radius: 12px;
+    transition: transform 0.3s ease;
+}
+
+.grid-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.grid-item:hover img {
+    transform: scale(1.05);
+}
+
+/* Footer Styles */
+footer {
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+    margin-top: 40px;
+    font-size: 14px;
+    border-top: 3px solid #d4af37;
+}
+
+footer a {
+    color: #d4af37;
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: #b8860b;
+}
+
+/* Login Page Styles */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #fdfdfd;  
+}
+
+.google-button{
+    background-color: #d4af37; 
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.login-box {
+    background-color: #fff;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
+    width: 100%;
+}
+
+.login-box h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333;  
+    font-family: 'Georgia', serif;
+}
+
+.login-box form {
+    display: flex;
+    flex-direction: column;
+}
+
+.login-box form label {
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.login-box form input[type="text"],
+.login-box form input[type="password"] {
+    width: 100%;  
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    font-size: 16px;
+}
+
+.login-box form button {
+    background-color: #d4af37; 
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.login-box form button:hover {
+    background-color: #b8860b;  
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.login-box .register-link {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.login-box .register-link a {
+    color: #d4af37;
+}
+
+.login-box .register-link a:hover {
+    color: #b8860b;
+}
+
+
+@media (max-width: 768px) {
+    .nav-links {
+        display: none;
+    }
+
+    .nav-toggle {
+        display: block;
+        font-size: 24px;
+        color: #d4af37;
+        cursor: pointer;
+    }
+
+    .nav-open .nav-links {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 60px;
+        left: 0;
+        right: 0;
+        background-color: #fff;
+        border-top: 2px solid #d4af37;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .nav-links a {
+        padding: 15px;
+        text-align: center;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .nav-links a:last-child {
+        border-bottom: none;
+    }
+}
+
+.nav-toggle {
+    display: none;
+}
+
+.upload-area {
+    border: 2px dashed #d4af37;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    transition: background-color 0.3s ease;
+}
+
+.upload-area.drag-over {
+    background-color: #f0f0f0;
+    border-color: #b8860b;
+}
+
+.progress-bar {
+    width: 100%;
+    max-width: 600px;
+    height: 10px;
+    background-color: #e0e0e0;
+    border-radius: 5px;
+    margin: 20px auto;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    width: 0;
+    height: 100%;
+    background-color: #d4af37;
+    transition: width 0.3s ease;
+}
+
+
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.grid-item {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow: hidden;
+    text-align: center;
+    padding: 10px;
+    transition: transform 0.3s ease;
+}
+
+.grid-item img {
+    max-width: 100%;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.grid-item:hover {
+    transform: translateY(-5px);
+}
+
+form, .personal-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+button, input, select {
+    margin: 10px;
+}
+
+.progress-bar {
+    width: 100%;
+    max-width: 600px;
+    height: 10px;
+    background-color: #e0e0e0;
+    border-radius: 5px;
+    margin: 20px auto;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    width: 0;
+    height: 100%;
+    background-color: #d4af37;
+    transition: width 0.3s ease;
+}
+
+/* 转换历史图片网格布局 */
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.grid-item {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow: hidden;
+    text-align: center;
+    padding: 10px;
+    transition: transform 0.3s ease;
+}
+
+.grid-item img {
+    max-width: 100%;
+    border-radius: 8px;
+}
+
+.grid-item:hover {
+    transform: translateY(-5px);
+}

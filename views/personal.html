@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Dashboard - Image Converter</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://cdn.tailwindcss.com"></script> <!-- 引入 Tailwind CSS -->
+</head>
+
+<body class="bg-gray-50 text-gray-800">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-md">
+        <div class="container mx-auto flex justify-between items-center py-4 px-6">
+            <div class="text-2xl font-bold text-yellow-600">Image Converter</div>
+            <div class="space-x-6">
+                <a href="/" class="text-gray-800 hover:text-yellow-600">Home</a>
+                <a href="/logout" id="logout" class="text-gray-800 hover:text-yellow-600">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto py-16">
+        <h2 class="text-3xl font-bold mb-6 text-center">Upload Images for Conversion</h2>
+        <form id="uploadForm" enctype="multipart/form-data" class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+            <input type="file" id="file" name="file" required class="mb-4 w-full border border-gray-300 rounded-md"/>
+            <label for="format" class="block mb-2 text-sm font-medium text-gray-700">Select Conversion Format:</label>
+            <select id="format" name="format" class="mb-4 w-full border border-gray-300 rounded-md">
+                <option value="jpg">JPG</option>
+                <option value="png">PNG</option>
+                <option value="gif">GIF</option>
+            </select>
+            <button type="submit" class="w-full bg-yellow-600 text-white py-2 rounded-md hover:bg-yellow-500">Upload and Convert</button>
+        </form>
+
+        <!-- Progress Bar -->
+        <div class="mt-4">
+            <div class="bg-gray-300 rounded-full h-2">
+                <div class="progress-bar-fill bg-yellow-600 h-full rounded-full" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <h2 class="text-3xl font-bold mt-10 mb-6 text-center">Conversion History</h2>
+        <div id="history" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="bg-gray-800 text-white py-4">
+        <div class="container mx-auto text-center">
+            <p>Contact Us: <a href="mailto:example@example.com" class="text-yellow-500 hover:text-yellow-400">example@example.com</a></p>
+        </div>
+    </footer>
+
+    <!-- JavaScript: Responsible for file upload and displaying history -->
+    <script>
+        // Handle form submission for file upload
+        document.getElementById('uploadForm').addEventListener('submit', async function(event) {
+            event.preventDefault();  // Prevent the default form submission
+            const formData = new FormData(document.getElementById('uploadForm'));
+            const progressBarFill = document.querySelector('.progress-bar-fill');
+
+            try {
+                const xhr = new XMLHttpRequest();  // Create a new XMLHttpRequest object
+                xhr.open('POST', '/upload', true);  // Open a POST request
+
+                // Track upload progress and update progress bar
+                xhr.upload.addEventListener('progress', function(event) {
+                    if (event.lengthComputable) {
+                        const percentage = (event.loaded / event.total) * 100;
+                        progressBarFill.style.width = percentage + '%';
+                    }
+                });
+
+                // Handle response once the upload is complete
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === XMLHttpRequest.DONE) {
+                        if (xhr.status === 200) {
+                            alert('File uploaded successfully');
+                            loadHistory();  // Reload conversion history
+                        } else {
+                            alert('Upload failed');
+                        }
+                        progressBarFill.style.width = '0%';  // Reset the progress bar after upload
+                    }
+                };
+
+                xhr.send(formData);  // Send the form data
+            } catch (error) {
+                console.error('Error during file upload:', error);
+            }
+        });
+
+        // Load the conversion history and display converted images
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/files');  // Fetch conversion history from the server
+                const files = await response.json();
+                const historyDiv = document.getElementById('history');
+                historyDiv.innerHTML = '';  // Clear current history
+
+                // Iterate through the list of files and display each one in the history section
+                files.forEach(file => {
+                    const fileElement = document.createElement('div');
+                    fileElement.className = 'bg-white rounded-lg shadow-md p-4';
+                    fileElement.innerHTML = `
+                        <img src="${file.url}" alt="${file.name}" class="w-full h-32 object-cover rounded-md mb-2">
+                        <p class="font-semibold">${file.name}</p>
+                        <p>Uploaded On: ${new Date(file.uploadTime).toLocaleString()}</p>
+                    `;
+                    historyDiv.appendChild(fileElement);
+                });
+            } catch (error) {
+                console.error('Error loading conversion history:', error);
+            }
+        }
+
+        // Load history on page load
+        window.onload = loadHistory;
+
+        // Establish WebSocket connection
+        const ws = new WebSocket('ws://localhost:80');
+
+        // Handle incoming messages
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log('WebSocket message received:', data);
+
+            // Optionally update the UI based on the message received
+            if (data.message) {
+                alert(data.message);
+            }
+        };
+
+        // Handle connection open
+        ws.onopen = function() {
+            console.log('WebSocket connection established');
+            // Optionally indicate successful connection in the UI
+        };
+
+        // Handle connection close
+        ws.onclose = function() {
+            console.log('WebSocket connection closed');
+            // Optionally implement reconnection logic
+        };
+
+        // Handle WebSocket errors
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+        };
+    </script>
+</body>
+
+</html>
