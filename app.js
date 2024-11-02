@@ -125,40 +125,38 @@ app.post('/login', async (req, res) => {
 });
 
 // Upload image and send SQS message
-app.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
+app.post('/upload', upload.single('file'), async (req, res) => {
     try {
-        const format = req.body.format || 'jpg';
-        
-        // Upload the file to S3
-        const fileStream = fs.createReadStream(req.file.path);
-        const s3Key = `${req.username}/${req.file.filename}-${Date.now()}.${format}`;
+        if (!req.file) return res.status(400).send('No file uploaded');
 
+        const format = req.body.format || 'jpg';
+        const s3Key = `uploads/${req.file.filename}.${format}`;
+        const fileStream = fs.createReadStream(req.file.path);
+
+  
         await s3Client.send(new PutObjectCommand({
             Bucket: S3_BUCKET,
             Key: s3Key,
-            Body: fileStream
+            Body: fileStream,
+            ContentType: `image/${format}`
         }));
 
-        fs.unlinkSync(req.file.path);  // 删除本地上传的文件
 
-        // Send a message to SQS with image processing task details
-        const messageBody = {
-            username: req.username,
-            format: format,
-            s3Key: s3Key
-        };
+        fs.unlinkSync(req.file.path);
 
+        const messageBody = JSON.stringify({ username: req.body.username, format, s3Key });
         await sqsClient.send(new SendMessageCommand({
             QueueUrl: QUEUE_URL,
-            MessageBody: JSON.stringify(messageBody)
+            MessageBody: messageBody
         }));
 
-        res.status(200).json({ message: 'Image uploaded and processing request sent' });
+        res.status(200).send('File uploaded and processing request sent');
     } catch (error) {
-        console.error('Error processing upload:', error);
-        res.status(500).send('Error processing image upload');
+        console.error('Error uploading file:', error);
+        res.status(500).send('File upload failed');
     }
 });
+
 
 
 // Retrieve user's uploaded files
