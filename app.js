@@ -51,15 +51,22 @@ let db;
             port: process.env.RDS_PORT
         });
 
+        // 创建表结构或检查并添加缺少的列
         db.query(`
             CREATE TABLE IF NOT EXISTS uploads (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 username VARCHAR(255),
                 file_name VARCHAR(255),
                 upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                status VARCHAR(50),
+                status VARCHAR(50) DEFAULT 'pending',
                 message TEXT
-            )`);
+            )`, (err) => {
+                if (err) {
+                    console.error('Error creating table or checking columns:', err);
+                } else {
+                    console.log('Uploads table created or verified successfully');
+                }
+            });
     } catch (err) {
         console.error("Failed to initialize the database connection with Secrets Manager credentials.", err);
         process.exit(1);
