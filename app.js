@@ -23,6 +23,7 @@ const app = express();
 const upload = multer({ dest: 'uploads/' });
 const memcached = new Memcached('team31.km2jzi.cfg.apse2.cache.amazonaws.com:11211');
 
+// 环境变量
 let S3_BUCKET;
 let queueUrl = process.env.SQS_QUEUE_URL;
 const AWS_REGION = process.env.AWS_REGION;
@@ -32,10 +33,12 @@ const redirectUri = process.env.GOOGLE_REDIRECT_URI;
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
+// AWS 客户端
 const s3Client = new S3Client({ region: AWS_REGION });
 const sqsClient = new SQSClient({ region: AWS_REGION });
 const cognitoClient = new CognitoIdentityProviderClient({ region: AWS_REGION });
 
+// 数据库初始化
 let db;
 (async () => {
     try {
@@ -53,7 +56,9 @@ let db;
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 username VARCHAR(255),
                 file_name VARCHAR(255),
-                upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(50),
+                message TEXT
             )`);
     } catch (err) {
         console.error("Failed to initialize the database connection with Secrets Manager credentials.", err);
@@ -61,11 +66,13 @@ let db;
     }
 })();
 
+// 中间件
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// JWT 客户端
 const client = jwksClient({
     jwksUri: `https://cognito-idp.${AWS_REGION}.amazonaws.com/${userPoolId}/.well-known/jwks.json`
 });
@@ -89,6 +96,7 @@ function verifyToken(req, res, next) {
     });
 }
 
+// 从 SSM 获取 S3 Bucket 名称
 async function getS3BucketName() {
     const ssmClient = new SSMClient({ region: 'ap-southeast-2' });
     const parameterName = '/n10324721/A2_parameter/S3BucketName';
@@ -103,6 +111,7 @@ async function getS3BucketName() {
     }
 }
 
+// 初始化 S3 Bucket 名称
 (async () => {
     try {
         S3_BUCKET = await getS3BucketName();
@@ -112,6 +121,7 @@ async function getS3BucketName() {
     }
 })();
 
+// 文件上传并发送转换任务
 app.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).send('No file uploaded');
 
@@ -140,12 +150,13 @@ app.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
     res.redirect('/personal');
 });
 
+// 查询文件上传历史
 app.get('/api/files', verifyToken, async (req, res) => {
     const cacheKey = `uploads:${req.username}`;
     memcached.get(cacheKey, async (err, data) => {
         if (data) return res.json(JSON.parse(data));
 
-        const sql = `SELECT file_name, upload_time FROM uploads WHERE username = ? ORDER BY upload_time DESC`;
+        const sql = `SELECT file_name, upload_time, status, message FROM uploads WHERE username = ? ORDER BY upload_time DESC`;
         db.query(sql, [req.username], async (err, results) => {
             if (err) return res.status(500).json({ error: 'Failed to load upload history' });
 
@@ -159,7 +170,9 @@ app.get('/api/files', verifyToken, async (req, res) => {
                 return {
                     name: row.file_name,
                     uploadTime: row.upload_time,
-                    url
+                    url,
+                    status: row.status,
+                    message: row.message
                 };
             }));
 
@@ -273,5 +286,5 @@ app.get('/callback', async (req, res) => {
     }
 });
 
+// 启动服务器
 app.listen(80, () => console.log('Service A running on port 80'));
-
