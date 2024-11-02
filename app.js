@@ -1,34 +1,73 @@
-
+// app.js - Service A
 require('dotenv').config();
 const express = require('express');
+const axios = require('axios');
+const querystring = require('querystring');
 const bodyParser = require('body-parser');
-const jwt = require('jsonwebtoken');
-const mysql = require('mysql2');
-const cookieParser = require('cookie-parser');
-const { CognitoIdentityProviderClient, SignUpCommand, InitiateAuthCommand, ConfirmSignUpCommand } = require('@aws-sdk/client-cognito-identity-provider');
-const { getDatabaseCredentials } = require('./secretmanager');
-const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
-const jwksClient = require('jwks-rsa');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const jwt = require('jsonwebtoken');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const mysql = require('mysql2');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { CognitoIdentityProviderClient, SignUpCommand, InitiateAuthCommand, ConfirmSignUpCommand } = require('@aws-sdk/client-cognito-identity-provider');
+const cookieParser = require('cookie-parser');
+const jwksClient = require('jwks-rsa');
+const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
+const Memcached = require('memcached');
+const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
+const { getDatabaseCredentials } = require('./secretmanager');
 
 const app = express();
-const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
-const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
-const s3Client = new S3Client({ region: process.env.AWS_REGION });
-const QUEUE_URL = process.env.SQS_QUEUE_URL;
-const S3_BUCKET = process.env.S3_BUCKET;
+const upload = multer({ dest: 'uploads/' });
+const memcached = new Memcached('team31.km2jzi.cfg.apse2.cache.amazonaws.com:11211');
 
-// Middleware
+let S3_BUCKET;
+let queueUrl = process.env.SQS_QUEUE_URL;
+const AWS_REGION = process.env.AWS_REGION;
+const userPoolId = process.env.COGNITO_USER_POOL_ID;
+const clientId = process.env.COGNITO_CLIENT_ID;
+const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+const s3Client = new S3Client({ region: AWS_REGION });
+const sqsClient = new SQSClient({ region: AWS_REGION });
+const cognitoClient = new CognitoIdentityProviderClient({ region: AWS_REGION });
+
+let db;
+(async () => {
+    try {
+        const dbCredentials = await getDatabaseCredentials();
+        db = mysql.createPool({
+            host: process.env.RDS_HOST,
+            user: dbCredentials.username,
+            password: dbCredentials.password,
+            database: process.env.RDS_DATABASE,
+            port: process.env.RDS_PORT
+        });
+
+        db.query(`
+            CREATE TABLE IF NOT EXISTS uploads (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                username VARCHAR(255),
+                file_name VARCHAR(255),
+                upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )`);
+    } catch (err) {
+        console.error("Failed to initialize the database connection with Secrets Manager credentials.", err);
+        process.exit(1);
+    }
+})();
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// JWT verification function
 const client = jwksClient({
-    jwksUri: `https://cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}/.well-known/jwks.json`
+    jwksUri: `https://cognito-idp.${AWS_REGION}.amazonaws.com/${userPoolId}/.well-known/jwks.json`
 });
 
 function verifyToken(req, res, next) {
@@ -44,34 +83,98 @@ function verifyToken(req, res, next) {
     };
 
     jwt.verify(token, getKey, { algorithms: ['RS256'] }, (err, decoded) => {
-        if (err) {
-            console.error('Token verification failed:', err);
-            return res.redirect('/login');
-        }
+        if (err) return res.redirect('/login');
         req.username = decoded.username;
         next();
     });
 }
 
-// Initialize MySQL database
-let db;
+async function getS3BucketName() {
+    const ssmClient = new SSMClient({ region: 'ap-southeast-2' });
+    const parameterName = '/n10324721/A2_parameter/S3BucketName';
+
+    try {
+        const command = new GetParameterCommand({ Name: parameterName });
+        const response = await ssmClient.send(command);
+        return response.Parameter.Value;
+    } catch (error) {
+        console.error("Error fetching S3 Bucket Name:", error);
+        throw new Error("Failed to fetch S3 Bucket Name");
+    }
+}
+
 (async () => {
-    const dbCredentials = await getDatabaseCredentials();
-    db = mysql.createPool({
-        host: process.env.RDS_HOST,
-        user: dbCredentials.username,
-        password: dbCredentials.password,
-        database: process.env.RDS_DATABASE,
-        port: process.env.RDS_PORT
-    });
+    try {
+        S3_BUCKET = await getS3BucketName();
+    } catch (error) {
+        console.error("Failed to initialize S3 bucket name.");
+        process.exit(1);
+    }
 })();
 
-// User registration route
+app.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).send('No file uploaded');
+
+    const format = req.body.format || 'jpg';
+    const fileKey = `${req.username}/${req.file.filename}`;
+
+    const fileStream = fs.createReadStream(req.file.path);
+    await s3Client.send(new PutObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: fileKey,
+        Body: fileStream
+    }));
+
+    const messageBody = {
+        username: req.username,
+        fileName: req.file.filename,
+        format: format
+    };
+
+    await sqsClient.send(new SendMessageCommand({
+        QueueUrl: queueUrl,
+        MessageBody: JSON.stringify(messageBody),
+    }));
+
+    fs.unlinkSync(req.file.path);
+    res.redirect('/personal');
+});
+
+app.get('/api/files', verifyToken, async (req, res) => {
+    const cacheKey = `uploads:${req.username}`;
+    memcached.get(cacheKey, async (err, data) => {
+        if (data) return res.json(JSON.parse(data));
+
+        const sql = `SELECT file_name, upload_time FROM uploads WHERE username = ? ORDER BY upload_time DESC`;
+        db.query(sql, [req.username], async (err, results) => {
+            if (err) return res.status(500).json({ error: 'Failed to load upload history' });
+
+            const files = await Promise.all(results.map(async row => {
+                const fileKey = `${req.username}/${row.file_name}`;
+                const url = await getSignedUrl(s3Client, new GetObjectCommand({
+                    Bucket: S3_BUCKET,
+                    Key: fileKey,
+                }), { expiresIn: 300 });
+
+                return {
+                    name: row.file_name,
+                    uploadTime: row.upload_time,
+                    url
+                };
+            }));
+
+            memcached.set(cacheKey, JSON.stringify(files), 300);
+            res.json(files);
+        });
+    });
+});
+
+// 用户注册
 app.post('/register', async (req, res) => {
     const { username, password, email } = req.body;
     try {
         const signUpCommand = new SignUpCommand({
-            ClientId: process.env.COGNITO_CLIENT_ID,
+            ClientId: clientId,
             Username: username,
             Password: password,
             UserAttributes: [{ Name: 'email', Value: email }]
@@ -84,12 +187,15 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// Email verification route
+// 验证页面
+app.get('/verify', (req, res) => res.sendFile(path.join(__dirname, 'views', 'verify.html')));
+
+// 验证用户注册
 app.post('/verify', async (req, res) => {
     const { username, verificationCode } = req.body;
     try {
         const confirmSignUpCommand = new ConfirmSignUpCommand({
-            ClientId: process.env.COGNITO_CLIENT_ID,
+            ClientId: clientId,
             Username: username,
             ConfirmationCode: verificationCode
         });
@@ -101,13 +207,13 @@ app.post('/verify', async (req, res) => {
     }
 });
 
-// User login route
+// 用户登录
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const authCommand = new InitiateAuthCommand({
             AuthFlow: 'USER_PASSWORD_AUTH',
-            ClientId: process.env.COGNITO_CLIENT_ID,
+            ClientId: clientId,
             AuthParameters: {
                 USERNAME: username,
                 PASSWORD: password,
@@ -116,7 +222,12 @@ app.post('/login', async (req, res) => {
         const response = await cognitoClient.send(authCommand);
         const token = response.AuthenticationResult.AccessToken;
 
-        res.cookie('idToken', token, { httpOnly: true, maxAge: 3600000, path: '/' });
+        res.cookie('idToken', token, {
+            httpOnly: true,
+            maxAge: 3600000,
+            path: '/',
+        });
+
         res.json({ success: true, message: 'Login successful' });
     } catch (err) {
         console.error('Login failed:', err);
@@ -124,59 +235,43 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Upload image and send SQS message
-app.post('/upload', upload.single('file'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).send('No file uploaded');
-
-        const format = req.body.format || 'jpg';
-        const s3Key = `uploads/${req.file.filename}.${format}`;
-        const fileStream = fs.createReadStream(req.file.path);
-
-  
-        await s3Client.send(new PutObjectCommand({
-            Bucket: S3_BUCKET,
-            Key: s3Key,
-            Body: fileStream,
-            ContentType: `image/${format}`
-        }));
-
-
-        fs.unlinkSync(req.file.path);
-
-        const messageBody = JSON.stringify({ username: req.body.username, format, s3Key });
-        await sqsClient.send(new SendMessageCommand({
-            QueueUrl: QUEUE_URL,
-            MessageBody: messageBody
-        }));
-
-        res.status(200).send('File uploaded and processing request sent');
-    } catch (error) {
-        console.error('Error uploading file:', error);
-        res.status(500).send('File upload failed');
-    }
-});
-
-
-
-// Retrieve user's uploaded files
-app.get('/api/files', verifyToken, async (req, res) => {
-    const sql = `SELECT file_name, upload_time FROM uploads WHERE username = ? ORDER BY upload_time DESC`;
-    db.query(sql, [req.username], (err, results) => {
-        if (err) {
-            console.error('Error fetching upload history:', err);
-            return res.status(500).json({ error: 'Failed to load upload history' });
-        }
-        res.json(results);
-    });
-});
-
-// Logout route
+// 登出
 app.get('/logout', (req, res) => {
     res.clearCookie('idToken');
     res.redirect('/login');
 });
 
-const server = app.listen(80, '0.0.0.0', () => {
-    console.log('API Service is running on port 80');
+// Google登录回调
+app.get('/callback', async (req, res) => {
+    const authorizationCode = req.query.code;
+
+    if (!authorizationCode) {
+        return res.status(400).send('Authorization code not provided');
+    }
+
+    try {
+        const tokenResponse = await axios.post(`https://oauth2.googleapis.com/token`, querystring.stringify({
+            grant_type: 'authorization_code',
+            client_id: googleClientId,
+            client_secret: googleClientSecret,
+            code: authorizationCode,
+            redirect_uri: redirectUri
+        }), {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+
+        const { id_token, access_token } = tokenResponse.data;
+
+        res.cookie('idToken', id_token, { httpOnly: true });
+        res.cookie('accessToken', access_token, { httpOnly: true });
+        res.redirect('/personal');
+    } catch (err) {
+        console.error('Error during Google OAuth callback:', err);
+        res.status(500).send('Login failed');
+    }
 });
+
+app.listen(80, () => console.log('Service A running on port 80'));
+
