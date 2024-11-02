@@ -1,4 +1,3 @@
-// service-api/app.js
 
 require('dotenv').config();
 const express = require('express');
@@ -10,11 +9,17 @@ const { CognitoIdentityProviderClient, SignUpCommand, InitiateAuthCommand, Confi
 const { getDatabaseCredentials } = require('./secretmanager');
 const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 const jwksClient = require('jwks-rsa');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const app = express();
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
 const QUEUE_URL = process.env.SQS_QUEUE_URL;
+const S3_BUCKET = process.env.S3_BUCKET;
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -119,13 +124,28 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Upload image processing request to SQS
-app.post('/upload', verifyToken, async (req, res) => {
+// Upload image and send SQS message
+app.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
     try {
+        const format = req.body.format || 'jpg';
+        
+        // Upload the file to S3
+        const fileStream = fs.createReadStream(req.file.path);
+        const s3Key = `${req.username}/${req.file.filename}-${Date.now()}.${format}`;
+
+        await s3Client.send(new PutObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: s3Key,
+            Body: fileStream
+        }));
+
+        fs.unlinkSync(req.file.path);  // 删除本地上传的文件
+
+        // Send a message to SQS with image processing task details
         const messageBody = {
             username: req.username,
-            format: req.body.format || 'jpg',
-            // Include any file-specific data
+            format: format,
+            s3Key: s3Key
         };
 
         await sqsClient.send(new SendMessageCommand({
@@ -133,12 +153,13 @@ app.post('/upload', verifyToken, async (req, res) => {
             MessageBody: JSON.stringify(messageBody)
         }));
 
-        res.status(200).json({ message: 'Image processing request sent successfully' });
+        res.status(200).json({ message: 'Image uploaded and processing request sent' });
     } catch (error) {
-        console.error('Error sending to SQS:', error);
-        res.status(500).send('Error sending image to processing queue');
+        console.error('Error processing upload:', error);
+        res.status(500).send('Error processing image upload');
     }
 });
+
 
 // Retrieve user's uploaded files
 app.get('/api/files', verifyToken, async (req, res) => {
