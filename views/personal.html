@@ -94,12 +94,11 @@
         // Load the conversion history and display converted images
         async function loadHistory() {
             try {
-                const response = await fetch('/api/files');  // Fetch conversion history from the server
+                const response = await fetch('/api/files');  
                 const files = await response.json();
                 const historyDiv = document.getElementById('history');
-                historyDiv.innerHTML = '';  // Clear current history
+                historyDiv.innerHTML = ''; 
 
-                // Iterate through the list of files and display each one in the history section
                 files.forEach(file => {
                     const fileElement = document.createElement('div');
                     fileElement.className = 'bg-white rounded-lg shadow-md p-4';
@@ -107,6 +106,8 @@
                         <img src="${file.url}" alt="${file.name}" class="w-full h-32 object-cover rounded-md mb-2">
                         <p class="font-semibold">${file.name}</p>
                         <p>Uploaded On: ${new Date(file.uploadTime).toLocaleString()}</p>
+                        <p>Status: ${file.status ? file.status : 'Pending'}</p>
+                        <p>Message: ${file.message ? file.message : ''}</p>
                     `;
                     historyDiv.appendChild(fileElement);
                 });
@@ -114,6 +115,7 @@
                 console.error('Error loading conversion history:', error);
             }
         }
+
 
         // Load history on page load
         window.onload = loadHistory;

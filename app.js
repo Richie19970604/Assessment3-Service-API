@@ -51,7 +51,6 @@ let db;
             port: process.env.RDS_PORT
         });
 
-        // 创建表结构或检查并添加缺少的列
         db.query(`
             CREATE TABLE IF NOT EXISTS uploads (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -73,13 +72,11 @@ let db;
     }
 })();
 
-// 中间件
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// JWT 客户端
 const client = jwksClient({
     jwksUri: `https://cognito-idp.${AWS_REGION}.amazonaws.com/${userPoolId}/.well-known/jwks.json`
 });
@@ -103,7 +100,6 @@ function verifyToken(req, res, next) {
     });
 }
 
-// 从 SSM 获取 S3 Bucket 名称
 async function getS3BucketName() {
     const ssmClient = new SSMClient({ region: 'ap-southeast-2' });
     const parameterName = '/n10324721/A2_parameter/S3BucketName';
@@ -118,7 +114,6 @@ async function getS3BucketName() {
     }
 }
 
-// 初始化 S3 Bucket 名称
 (async () => {
     try {
         S3_BUCKET = await getS3BucketName();
@@ -128,7 +123,6 @@ async function getS3BucketName() {
     }
 })();
 
-
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'views', 'index.html')));
 app.get('/about', (req, res) => res.sendFile(path.join(__dirname, 'views', 'about.html')));
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'views', 'login.html')));
@@ -136,8 +130,6 @@ app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'views', 'r
 app.get('/personal', verifyToken, (req, res) => res.sendFile(path.join(__dirname, 'views', 'personal.html')));
 app.get('/verify', (req, res) => res.sendFile(path.join(__dirname, 'views', 'verify.html')));
 
-
-// 文件上传并发送转换任务
 app.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).send('No file uploaded');
 
@@ -166,7 +158,6 @@ app.post('/upload', verifyToken, upload.single('file'), async (req, res) => {
     res.redirect('/personal');
 });
 
-// 查询文件上传历史
 app.get('/api/files', verifyToken, async (req, res) => {
     const cacheKey = `uploads:${req.username}`;
     memcached.get(cacheKey, async (err, data) => {
@@ -198,7 +189,6 @@ app.get('/api/files', verifyToken, async (req, res) => {
     });
 });
 
-// 用户注册
 app.post('/register', async (req, res) => {
     const { username, password, email } = req.body;
     try {
@@ -216,10 +206,8 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// 验证页面
 app.get('/verify', (req, res) => res.sendFile(path.join(__dirname, 'views', 'verify.html')));
 
-// 验证用户注册
 app.post('/verify', async (req, res) => {
     const { username, verificationCode } = req.body;
     try {
@@ -236,7 +224,6 @@ app.post('/verify', async (req, res) => {
     }
 });
 
-// 用户登录
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -264,13 +251,11 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// 登出
 app.get('/logout', (req, res) => {
     res.clearCookie('idToken');
     res.redirect('/login');
 });
 
-// Google登录回调
 app.get('/callback', async (req, res) => {
     const authorizationCode = req.query.code;
 
@@ -302,7 +287,6 @@ app.get('/callback', async (req, res) => {
     }
 });
 
-// 更新文件转换状态的路由
 app.post('/api/update-status', async (req, res) => {
     const { username, fileName, status, message, url } = req.body;
 
@@ -322,6 +306,4 @@ app.post('/api/update-status', async (req, res) => {
     }
 });
 
-
-// 启动服务器
 app.listen(80, () => console.log('Service A running on port 80'));
